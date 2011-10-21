@@ -97,11 +97,3 @@ function _drush_build_parse_arglist($arglist) {
   }
   return $options;
 }
-
-function _drush_build_debug_result($result) {
-  ob_start();
-  print_r($result);
-  $contents = ob_get_contents();
-  ob_end_clean();
-  file_put_contents('/home/oxy/Projects/Drupal/a', $contents, FILE_APPEND);
-}

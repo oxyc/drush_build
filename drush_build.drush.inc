@@ -140,10 +140,6 @@ function drush_drush_build_build($site_name = NULL) {
   ), array(
     'translations' => $settings['site-lang'], 
   ));
-  
-  // $result['error_status'] = 0
-  // $result['log'] = array();
-  _drush_build_debug_result($result);
 
   if (!drush_valid_drupal_root($settings['install_path'])) {
     return drush_set_error('DRUSH_BUILD_MAKE', dt('The make build failed.'));
@@ -168,7 +164,6 @@ function drush_drush_build_build($site_name = NULL) {
     'account-pass' => $settings['account-pass'],
     'account-mail' => $settings['account-mail'],
   ));
-  _drush_build_debug_result($result);
 
   if ($result === FALSE || (isset($result['error_status']) && $result['error_status'] == 1)) {
     return drush_set_error('DRUSH_BUILD_SITEINSTALL', dt('The installation process failed.'));
@@ -190,7 +185,6 @@ function drush_drush_build_build($site_name = NULL) {
       'uri' => $settings['local_url'],
       'db-url' => $settings['db-url'],
     ));
-    _drush_build_debug_result($result);
 
     if ($result === FALSE || (isset($result['error_status']) && $result['error_status'] == 1)) {
       drush_log(dt('Alias could not be generated'));
@@ -303,7 +297,6 @@ function drush_drush_build_deploy() {
     ), array(
       'keyname' => $settings['public-key']
     ));
-    _drush_build_debug_result($result);
 
     if ($result === FALSE || (isset($result['error_status']) && $result['error_status'] == 1)) {
       return drush_set_error('DRUSH_BUILD_PUSHKEY', dt('Could not push the public key.'));
@@ -330,7 +323,6 @@ function drush_drush_build_deploy() {
     'remote-hostname' => $settings['host'],
     'remote-user' => $settings['user'],
   ));
-  _drush_build_debug_result($result);
 
   if ($result === FALSE || (isset($result['error_status']) && $result['error_status'] == 1)) {
     return drush_set_error('DRUSH_BUILD_ALIAS', dt('Alias could not be generated'));
@@ -344,7 +336,6 @@ function drush_drush_build_deploy() {
   $url = constant('DRUSH_DOWNLOAD_URL');
   $exec = "ssh $ssh_login /bin/sh -c \"'wget -O - $url | tar -xvzf - && chmod +x drush/drush && mkdir -p .sqldumps && echo \\\"PATH=\\\$PATH:\\\$HOME/drush/\\\" >> .bashrc'\"";
   $result = drush_op_system($exec);
-  _drush_build_debug_result($result);
 
   if ($result === FALSE || (isset($result['error_status']) && $result['error_status'] == 1)) {
     drush_log(dt('Drush could not be downloaded on the remote server.'));
@@ -392,7 +383,6 @@ function drush_drush_build_deploy() {
   $result = drush_invoke_process($self, 'core-sync', $dev_to_live, array(
     'include-conf' => TRUE,
   ));
-  _drush_build_debug_result($result);
 
   if ($result === FALSE || (isset($result['error_status']) && $result['error_status'] == 1)) {
     drush_log(dt('The local site could not be rsynced to the remote host.'), 'warning');
@@ -414,7 +404,6 @@ function drush_drush_build_deploy() {
   else {
     drush_log(dt('The local database was synced to the remote succesfully.'), 'success');
   }
-  _drush_build_debug_result($result);
 
   $result = drush_invoke_process(drush_sitealias_get_record($remote_alias), 'cache-clear', array('all'), array());
   if ($result === FALSE || (isset($result['error_status']) && $result['error_status'] == 1)) {
@@ -423,7 +412,6 @@ function drush_drush_build_deploy() {
   else {
     drush_log(dt('Cleared cache on remote host successfully.'), 'success');
   }
-  _drush_build_debug_result($result);
 }
 
 /**
