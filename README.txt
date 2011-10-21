@@ -31,4 +31,11 @@ Drush build commands
         Will generate an alias file based on the argument list passed in as
         well as the configuration files. This command will NOT prompt the user.
 
+    drush create-repository reponame
+
+        Create a bitbucket git repository. Has options to also initialize a
+        local git repository and and bitbucket as a remote named origin.
+        
+        The intention of this command has not really been defined yet so the
+        API will change in the future.
 

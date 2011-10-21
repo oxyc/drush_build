@@ -55,6 +55,7 @@ $command_specific['build'] = array(
   'account-name' => 'admin',
   'account-pass' => 'admin',
   'account-mail' => 'admin@example.com',
+  'create-repository' => TRUE,
 );
 
 // Deploy specific settings that keeps repeating. Most of the values have
@@ -64,4 +65,14 @@ $command_specific['deploy'] = array(
   'db-driver' => 'mysql',
   'db-host' => 'localhost',
   'public-key' => 'id_rsa',
+);
+
+// Create a bitbucket git repository.
+// API for this will change.
+$command_specific['create-repository'] = array(
+  'method' => 'POST',
+  'username' => 'USERNAME',
+  'password' => 'PASSWORD',
+  'url' => 'https://api.bitbucket.org/1.0/repositories/',
+  'private' => TRUE,
 );

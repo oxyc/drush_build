@@ -216,17 +216,19 @@ function drush_drush_build_build($site_name = NULL) {
     }
   }
 
-  $result = drush_invoke_process($none, 'create-repository', array(
-    $settings['site-uri'],
-  ), array(
-    'add-remote' => TRUE,
-    'init' => TRUE,
-  ));
-  if ($result === FALSE || (isset($result['error_status']) && $result['error_status'] == 1)) {
-    drush_log(dt('Was not able to create a git repository.'));
-  }
-  else {
-    drush_log(dt('Created a git repistory on bitbucket and added the remote.'), 'success');
+  if ($settings['create-repository']) {
+    $result = drush_invoke_process($none, 'create-repository', array(
+      $settings['site-uri'],
+    ), array(
+      'add-remote' => TRUE,
+      'init' => TRUE,
+    ));
+    if ($result === FALSE || (isset($result['error_status']) && $result['error_status'] == 1)) {
+      drush_log(dt('Was not able to create a git repository.'));
+    }
+    else {
+      drush_log(dt('Created a git repistory on bitbucket and added the remote.'), 'success');
+    }
   }
 
   // Launch a login page in the browser
