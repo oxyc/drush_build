@@ -37,6 +37,7 @@ function drush_build_drush_command() {
       '--account-name' => dt('The username of the Drupal UID1'),
       '--account-pass' => dt('The password of the Drupal UID1'),
       '--account-mail' => dt('The email of the Drupal UID1'),
+      '--create-repository' => TRUE,
     ),
   );
   $items['deploy'] = array(
@@ -79,6 +80,27 @@ function drush_build_drush_command() {
       '--db-url' => dt('The database connection url'),
       '--remote-hostname' => dt('The host address of the remote site'),
       '--remote-user' => dt('The username of the remote host'),
+    ),
+  );
+  // @todo, decide the purpose of this, currently only bitbucket
+  $items['create-repository'] = array(
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
+    'description' => dt('Create a repository on a remote git code hosting server.'),
+    'arguments' => array(
+      'name' => dt('The name of the repository'),
+    ),
+    'examples' => array(
+      'drush create-repository' => dt('Create a repository'),
+    ),
+    'options' => array(
+      '--version' => dt('Print the version and exit'),
+      '--method' => dt('Curl method, POST or GET'),
+      '--username' => dt('The username of your account'),
+      '--password' => dt('The password of your account'),
+      '--url' => dt('The API url'),
+      '--private' => dt('If this is a private repository'),
+      '--init' => dt('If you want to run git init and add the repository as remote origin'),
+      '--add-remote' => dt('If you wan to add the remote as origin'),
     ),
   );
   return $items;
@@ -192,6 +214,19 @@ function drush_drush_build_build($site_name = NULL) {
     else {
       drush_log(dt('Alias was generated succesfully.'), 'success');
     }
+  }
+
+  $result = drush_invoke_process($none, 'create-repository', array(
+    $settings['site-uri'],
+  ), array(
+    'add-remote' => TRUE,
+    'init' => TRUE,
+  ));
+  if ($result === FALSE || (isset($result['error_status']) && $result['error_status'] == 1)) {
+    drush_log(dt('Was not able to create a git repository.'));
+  }
+  else {
+    drush_log(dt('Created a git repistory on bitbucket and added the remote.'), 'success');
   }
 
   // Launch a login page in the browser
@@ -411,6 +446,34 @@ function drush_drush_build_deploy() {
   }
   else {
     drush_log(dt('Cleared cache on remote host successfully.'), 'success');
+  }
+
+}
+
+function drush_drush_build_create_repository($name = NULL) {
+  
+  if (is_null($name)) {
+    return drush_set_error('DRUSH_BUILD_CREATE_REPOSITORY', dt('You have to specifiy a name for your repository.'));
+  }
+  $self = drush_sitealias_get_record('@self');
+
+  // Read settings
+  $settings = _drush_build_options();
+
+  $vars = "-d 'name=$name' -d 'scm=git'";
+  if ($settings['private']) {
+    $vars .= " -d 'is_private=True'";
+  }
+  $exec = sprintf('curl -X %s -u %s:%s %s %s', $settings['method'], $settings['username'], $settings['password'], $settings['url'], $vars);
+
+  $result = drush_op('drush_shell_exec', $exec);
+
+  if ($result !== FALSE && $settings['init'] === TRUE) {
+    $result = drush_op('drush_shell_exec', 'git init');
+  }
+  if ($result !== FALSE && $settings['add-remote'] === TRUE) {
+    $exec = sprintf('git remote add origin git@bitbucket.org:%s/%s.git', $settings['username'], $name);
+    $result = drush_op('drush_shell_exec', $exec);
   }
 }
 
