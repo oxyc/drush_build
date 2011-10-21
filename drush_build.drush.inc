@@ -2,13 +2,7 @@
 
 include_once 'drush_build.utilities.inc';
 
-/**
- * Implements drush_hook_init().
- */
-function drush_drush_build_init() {
-  // URL to drush source for downloading on remote host
-  define('DRUSH_DOWNLOAD_URL', 'http://ftp.drupal.org/files/projects/drush-7.x-4.5.tar.gz');
-}
+define('DRUSH_DOWNLOAD_URL', 'http://ftp.drupal.org/files/projects/drush-7.x-4.5.tar.gz');
 
 /**
  * Implements hook_drush_command().
@@ -34,7 +28,7 @@ function drush_build_drush_command() {
       '--site-lang' => dt('The language of the website, separeted by commas'),
       '--site-profile' => dt('The installation profile to use'),
       '--root' => dt('The root directory of the local installation'),
-      '--db-protocol' => dt('The %location database protocol', array('%location' => 'local')),
+      '--db-driver' => dt('The %location database driver', array('%location' => 'local')),
       '--db-host' => dt('The hostname of the %location database', array('%location' => 'local')),
       '--db-database' => dt('The name of the %location database', array('%location' => 'local')),
       '--db-username' => dt('The username to access the %location database with', array('%location' => 'local')),
@@ -60,7 +54,7 @@ function drush_build_drush_command() {
       '--root' => dt('The root directory of the remote installation'),
       '--host' => dt('The remote host address'),
       '--user' => dt('The username of the remote host'),
-      '--db-protocol' => dt('The %location database protocol', array('%location' => 'remote')),
+      '--db-driver' => dt('The %location database driver', array('%location' => 'remote')),
       '--db-host' => dt('The hostname of the %location database', array('%location' => 'remote')),
       '--db-database' => dt('The name of the %location database', array('%location' => 'remote')),
       '--db-username' => dt('The username to access the %location database with', array('%location' => 'remote')),
@@ -81,11 +75,8 @@ function drush_build_drush_command() {
     'options' => array(
       '--version' => dt('Print the version and exit'),
       '--uri' => dt('The URI of the remote host'),
-      '--db-protocol' => dt('The %location database protocol', array('%location' => 'alias')),
-      '--db-host' => dt('The hostname of the %location database', array('%location' => 'alias')),
-      '--db-database' => dt('The name of the %location database', array('%location' => 'alias')),
-      '--db-username' => dt('The username to access the %location database with', array('%location' => 'alias')),
-      '--db-password' => dt('The password to access the %location database', array('%location' => 'alias')),
+      '--root' => dt('The root of the drupal installation'),
+      '--db-url' => dt('The database connection url'),
       '--remote-hostname' => dt('The host address of the remote site'),
       '--remote-user' => dt('The username of the remote host'),
     ),
@@ -118,10 +109,10 @@ function drush_drush_build_build($site_name = NULL) {
   // Read settings
   $settings = _drush_build_options(TRUE);
   $settings['install_path'] = $settings['root'] . '/' . $settings['site-uri'];
-  $settings['local-url'] = $settings['host'] . '/' . $settings['site-uri'];
+  $settings['local_url'] = $settings['host'] . '/' . $settings['site-uri'];
 
   // @todo, Look into: drush_convert_db_from_db_url()
-  $settings['db-url'] = $settings['db-protocol']
+  $settings['db-url'] = $settings['db-driver']
     . '://' . $settings['db-username']
     . ':' . $settings['db-password']
     . '@' . $settings['db-host']
@@ -130,12 +121,11 @@ function drush_drush_build_build($site_name = NULL) {
   $none = array('root' => NULL, 'uri' => NULL);
 
   if (is_dir($settings['install_path'])) {
-    return drush_user_abort(dt('The installation path already exists.'));
 
-    // @todo, chmod +w to settings file and and remove directory.
-    $continue = drush_confirm(dt('The installation directory (%path) already exists, do you wish to remove it', array('%path' => $install_path));
+    $continue = drush_confirm(dt('The installation path %path already exists, do you wish to remove it', array('%path' => $install_path)));
 
     if ($continue) {
+      drush_op('drush_shell_exec', 'chmod -R a+w %s', $settings['install_path']);
       drush_op('drush_shell_exec', 'rm -rf %s', $settings['install_path']);
     } else {
       return drush_user_abort(dt('The old installation was kept, exiting.'));
@@ -143,24 +133,30 @@ function drush_drush_build_build($site_name = NULL) {
   }
 
   // Drush make
+  drush_print(dt('Invoking %command, this might take a while...', array('%command' => 'drush make')));
   $result = drush_invoke_process($none, 'make', array(
     $settings['make-file'],
     $settings['install_path'],
   ), array(
     'translations' => $settings['site-lang'], 
   ));
+  
+  // $result['error_status'] = 0
+  // $result['log'] = array();
+  _drush_build_debug_result($result);
 
   if (!drush_valid_drupal_root($settings['install_path'])) {
     return drush_set_error('DRUSH_BUILD_MAKE', dt('The make build failed.'));
   }
   else {
-    drush_log(dt('Drush make completed successfully.'), 'success')
+    drush_log(dt('Drush make completed successfully.'), 'success');
   }
 
   // Move into the newly created installation directory
-  drush_op('chdir', $install_path);
+  drush_op('chdir', $settings['install_path']);
 
   // Drush site-install
+  drush_print(dt('Invoking %command, this might take a while...', array('%command' => 'drush site-install')));
   $result = drush_invoke_process($none, 'site-install', array(
     $settings['site-profile'],
   ), array(
@@ -172,8 +168,9 @@ function drush_drush_build_build($site_name = NULL) {
     'account-pass' => $settings['account-pass'],
     'account-mail' => $settings['account-mail'],
   ));
+  _drush_build_debug_result($result);
 
-  if ($result === FALSE) {
+  if ($result === FALSE || (isset($result['error_status']) && $result['error_status'] == 1)) {
     return drush_set_error('DRUSH_BUILD_SITEINSTALL', dt('The installation process failed.'));
   }
   else {
@@ -189,15 +186,17 @@ function drush_drush_build_build($site_name = NULL) {
       $settings['site-uri'],
       'local'
     ), array(
-      'uri' => $settings['local-url'],
+      'root' => $settings['root'] . '/' . $settings['site-uri'],
+      'uri' => $settings['local_url'],
       'db-url' => $settings['db-url'],
     ));
+    _drush_build_debug_result($result);
 
-    if ($result) {
-      drush_log(dt('Alias was generated succesfully.'), 'success');
+    if ($result === FALSE || (isset($result['error_status']) && $result['error_status'] == 1)) {
+      drush_log(dt('Alias could not be generated'));
     }
     else {
-      drush_log(dt('Alias could not be generated'));
+      drush_log(dt('Alias was generated succesfully.'), 'success');
     }
   }
 
@@ -205,7 +204,7 @@ function drush_drush_build_build($site_name = NULL) {
   if (!empty($settings['host'])) {
     $login_url = drush_invoke_process($none, 'user-login', array(
     ), array(
-      'uri' => $local_url,
+      'uri' => $settings['local_url'],
     ));
 
     if (is_array($login_url)) {
@@ -219,45 +218,43 @@ function drush_drush_build_build($site_name = NULL) {
  *
  * Scaffolds an alias file based on configurations passed.
  */
-function drush_drush_build_generate_alias($name = NULL, $location = 'local') {
+function drush_drush_build_generate_alias($name = NULL, $location = NULL) {
   
   if (is_null($name)) {
     return drush_set_error('DRUSH_BUILD_ALIAS', dt('You have to specifiy a name for the alias file.'));
   }
-
-  // @todo, remove this
-  switch ($location) {
-    case 'local':
-      $context = "alias-$location";
-      break;
-    case 'remote':
-      $context = "alias-$location";
-      break;
-    default:
-      return drush_set_error('DRUSH_BUILD_ALIAS', dt('Your location has to be either local or remote'));
-      break;
+  if (is_null($location)) {
+    drush_log(dt('No location alias specified, using the alias name as the entire identifier.'));
+    $location = $name;
   }
 
   // Read settings
   $settings = _drush_build_options();
 
+  if (!array_key_exists($location, $settings)) {
+    return drush_set_error('DRUSH_BUILD_ALIAS', dt('Your location doesn\'t exist as a template.'));
+  }
+  $alias_id = $settings[$location];
+
   // Merge in location specific configurations from drushrc file.
-  if (array_key_exists($context, $settings)) {
+  if (array_key_exists($alias_id, $settings)) {
     $cli = drush_get_context('cli');
 
     // Remove drush generated elements.
     unset($cli['php'], $cli['backend']);
 
-    $settings = array_merge($settings[$context], $cli);
+    $settings[$alias_id] = array_merge($settings[$alias_id], $cli);
   }
   else {
-    return drush_log(dt('No alias template could be found for %context, please define it in your drushrc file.', array('%context' => $context)));
+    return drush_error(dt('No alias template could be found for %location, please define it in your drushrc file.', array('%location' => $location)));
   }
 
   $alias_file = $settings['directory'] . '/' . $name . '.aliases.drushrc.php';
 
-  // Remove the directory element as it's not supposed be scaffoled.
-  unset($settings['directory']);
+  if (array_key_exists('remote-hostname', $settings[$alias_id])) {
+      $settings[$alias_id]['remote-host'] = $settings[$alias_id]['remote-hostname'];
+      unset($settings[$alias_id]['remote-hostname']);
+  }
 
   // Create the directory if it doesn't exist
   if (!is_dir(dirname($alias_file))) {
@@ -265,7 +262,7 @@ function drush_drush_build_generate_alias($name = NULL, $location = 'local') {
   }
 
   // Scaffold the content
-  $content = drush_build_generate_alias_contents($settings);
+  $content = drush_build_scaffold_array_definition('$aliases[\'' . $alias_id . '\']', $settings[$alias_id]);
   
   // Write the content
   if (!file_exists($alias_file) && file_put_contents($alias_file, "<?php\n\n$content")) {
@@ -287,8 +284,12 @@ function drush_drush_build_generate_alias($name = NULL, $location = 'local') {
  */
 function drush_drush_build_deploy() {
   
-  $alias = drush_sitealias_get_record('@self');
-  drush_set_default('site-uri', basename($alias['root']));
+  $self = drush_sitealias_get_record('@self');
+  
+  if (!drush_valid_drupal_root($self['root'])) {
+    return drush_set_error('DRUSH_BUILD_DEPLOY', dt('Your current working directory is not a valid Drupal installation.'));
+  }
+  drush_set_default('site-uri', basename($self['root']));
 
   $none = array('root' => NULL, 'uri' => NULL);
 
@@ -302,8 +303,9 @@ function drush_drush_build_deploy() {
     ), array(
       'keyname' => $settings['public-key']
     ));
+    _drush_build_debug_result($result);
 
-    if ($result === FALSE) {
+    if ($result === FALSE || (isset($result['error_status']) && $result['error_status'] == 1)) {
       return drush_set_error('DRUSH_BUILD_PUSHKEY', dt('Could not push the public key.'));
     }
     else {
@@ -311,24 +313,26 @@ function drush_drush_build_deploy() {
     }
   }
   
-  $db_url = $settings['db-protocol']
+  $db_url = $settings['db-driver']
     . '://' . $settings['db-username']
     . ':' . $settings['db-password']
     . '@' . $settings['db-host']
     . '/' . $settings['db-database'];
 
   // Generate remote alias
-  $result = drush_invoke_process(array('root' => NULL, 'uri' => NULL), 'generate-alias', array(
+  $result = drush_invoke_process($none, 'generate-alias', array(
     $settings['site-uri'],
     'remote'
   ), array(
+    'root' => '/home/' . $settings['user'] . '/public_html',
     'uri' => 'http://' . $settings['host'],
     'db-url' => $db_url,
     'remote-hostname' => $settings['host'],
     'remote-user' => $settings['user'],
   ));
+  _drush_build_debug_result($result);
 
-  if ($result === FALSE) {
+  if ($result === FALSE || (isset($result['error_status']) && $result['error_status'] == 1)) {
     return drush_set_error('DRUSH_BUILD_ALIAS', dt('Alias could not be generated'));
   }
   else {
@@ -337,17 +341,89 @@ function drush_drush_build_deploy() {
 
   // Download drush on remote host
   $ssh_login = $settings['user'] . '@' . $settings['host'];
-  $url = DRUSH_DOWNLOAD_URL;
-  $exec = "ssh $ssh_login /bin/sh -c \"'wget -O - $url | tar -xvzf - && chmod +x drush/drush && echo \\\"PATH=\\\$PATH:\\\$HOME/drush/\\\" >> .bashrc'\"";
+  $url = constant('DRUSH_DOWNLOAD_URL');
+  $exec = "ssh $ssh_login /bin/sh -c \"'wget -O - $url | tar -xvzf - && chmod +x drush/drush && mkdir -p .sqldumps && echo \\\"PATH=\\\$PATH:\\\$HOME/drush/\\\" >> .bashrc'\"";
   $result = drush_op_system($exec);
-  if ($result !== FALSE) {
+  _drush_build_debug_result($result);
+
+  if ($result === FALSE || (isset($result['error_status']) && $result['error_status'] == 1)) {
+    drush_log(dt('Drush could not be downloaded on the remote server.'));
+  }
+  else {
     drush_log(dt('Drush was downloaded on the remote server successfully.'), 'success');
   }
 
-  // @todo, errors:
-  // deploy doesnt generate alias!?
-  // add --include-conf to rsync for the first time
-  // find a way to change mysql settings on remote host
+  // Scaffold database config into settings.php
+  $db_settings = array(
+    'default' => array(
+      'default' => array(
+        'database' => $settings['db-database'],
+        'username' => $settings['db-username'],
+        'password' => $settings['db-password'],
+        'host' => $settings['db-host'],
+        'driver' => $settings['db-driver'],
+        'port' => '',
+        'prefix' => '',
+      ),
+    ),
+  ); 
+  $content = "\nif (\$_SERVER['HTTP_HOST'] == '" . $settings['host'] . "') {";
+  $content .= drush_build_scaffold_array_definition('$databases', $db_settings);
+  $content .= "\n}\n";
+
+  $conf_file = $self['root'] . '/sites/default/settings.php';
+  drush_op('drush_shell_exec', 'chmod a+w %s', $conf_file);
+
+  if (file_put_contents($conf_file, $content, FILE_APPEND)) {
+    drush_log(dt('Wrote remote database configuration to %file', array('%file' => $conf_file)), 'success');
+  }
+  else {
+    drush_log(dt('Writing remote database configuration to %file failed', array('%file' => $conf_file)));
+  }
+
+  drush_op('drush_shell_exec', 'chmod a-w %s', $conf_file);
+
+  // @todo, abstract alias identifier
+  $local_alias = '@' . $settings['site-uri'] . '.dev';
+  $remote_alias = '@' . $settings['site-uri'] . '.live';
+  $dev_to_live = array($local_alias, $remote_alias);
+
+  drush_print(dt('Invoking %command, this might take a while...', array('%command' => 'drush core-sync')));
+  $result = drush_invoke_process($self, 'core-sync', $dev_to_live, array(
+    'include-conf' => TRUE,
+  ));
+  _drush_build_debug_result($result);
+
+  if ($result === FALSE || (isset($result['error_status']) && $result['error_status'] == 1)) {
+    drush_log(dt('The local site could not be rsynced to the remote host.'), 'warning');
+  }
+  else {
+    drush_log(dt('The local site was rsynced to the remote host succesfully.'), 'success');
+  }
+
+  // Removing group access permission from public_html
+  // @todo, use the config
+  $exec = "ssh $ssh_login /bin/sh -c \"'chmod 755 public_html'\"";
+  $result = drush_op_system($exec);
+
+  drush_print(dt('Invoking %command, this might take a while...', array('%command' => 'drush sql-sync')));
+  $result = drush_invoke_process($self, 'sql-sync', $dev_to_live, array());
+  if ($result === FALSE || (isset($result['error_status']) && $result['error_status'] == 1)) {
+    drush_log(dt('The local site database could not be synced to the remote hosts.'), 'warning');
+  }
+  else {
+    drush_log(dt('The local database was synced to the remote succesfully.'), 'success');
+  }
+  _drush_build_debug_result($result);
+
+  $result = drush_invoke_process(drush_sitealias_get_record($remote_alias), 'cache-clear', array('all'), array());
+  if ($result === FALSE || (isset($result['error_status']) && $result['error_status'] == 1)) {
+    drush_log(dt('Was note able to clear the cache on the remote host.'));
+  }
+  else {
+    drush_log(dt('Cleared cache on remote host successfully.'), 'success');
+  }
+  _drush_build_debug_result($result);
 }
 
 /**

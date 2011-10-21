@@ -1,24 +1,20 @@
 <?php
 
 /**
- * Scaffolds an array declaration to be used for aliases.
+ * Scaffolds an array declaration
  *
- * @param $options
- *   Requires an 'alias' key which contains the name of the alias. This will
- *   then be removed and not contained within the array declaration. The
- *   rest of the elements will be iterated and scaffolded.
+ * @param $identifier
+ *   The variable identifier as a string, e.g. $aliases.
+ *
+ * @param $definition
+ *   The definiton of the declaration as an associative array.
  *
  * @return
- *   The scaffolded array as a string.
+ *   The scaffolded declaration as a string.
  */
-function drush_build_generate_alias_contents($options) {
+function drush_build_scaffold_array_definition($variable, $definition) {
 
-  $name = $options['alias'];
-  unset($options['alias']);
-
-  $content = "\n\$aliases['$name'] = "
-    . _drush_build_generate_alias_contents_value($options)
-    . ";\n";
+  $content = "\n$variable = " . _drush_build_scaffold_array($definition) . ";\n";
 
   return $content;
 }
@@ -33,15 +29,13 @@ function drush_build_generate_alias_contents($options) {
  * @return
  *   The scaffolded value as a string.
  */
-function _drush_build_generate_alias_contents_value($value) {
+function _drush_build_scaffold_array($value) {
 
   if (is_array($value)) {
     $content = "array(";
 
     foreach ($value as $k => $v) {
-      // @todo figure out why one cant pass remote host as an option
-      $k = ($k == "remote-hostname") ? "remote-host" : $k;
-      $content .= "\n '$k' => " . drush_build_generate_alias_contents_value($v);
+      $content .= "\n '$k' => " . _drush_build_scaffold_array($v);
     }
 
     $content .= "\n)";
@@ -102,4 +96,12 @@ function _drush_build_parse_arglist($arglist) {
     }
   }
   return $options;
+}
+
+function _drush_build_debug_result($result) {
+  ob_start();
+  print_r($result);
+  $contents = ob_get_contents();
+  ob_end_clean();
+  file_put_contents('/home/oxy/Projects/Drupal/a', $contents, FILE_APPEND);
 }
