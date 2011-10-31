@@ -97,3 +97,12 @@ function _drush_build_parse_arglist($arglist) {
   }
   return $options;
 }
+
+function _drush_build_write_error($arr) {
+  ob_start();
+  print_r($arr);
+  $output = ob_get_contents();
+  ob_end_clean();
+  $filename = "drush_build_error." . date("Y-m-d-His") . ".log";
+  file_put_contents(drush_cwd() . '/' . $filename, $output);
+}

@@ -135,12 +135,10 @@ function drush_drush_build_build($site_name = NULL) {
 
   // @todo, Look into: drush_convert_db_from_db_url()
   $settings['db-url'] = $settings['db-driver']
-    . '://' . $settings['db-username']
-    . (!empty($settings['db-password']) ? ':' . $settings['db-password'] : '')
+    . '://' . urlencode($settings['db-username'])
+    . (!empty($settings['db-password']) ? ':' . urlencode($settings['db-password']) : '')
     . '@' . $settings['db-host']
     . '/' . $settings['db-database'];
-
-  //drush_print(print_r($settings));
 
   $none = array('root' => NULL, 'uri' => NULL);
 
@@ -166,6 +164,7 @@ function drush_drush_build_build($site_name = NULL) {
   ));
 
   if (!drush_valid_drupal_root($settings['install_path'])) {
+    _drush_build_write_error($result);
     return drush_set_error('DRUSH_BUILD_MAKE', dt('The make build failed.'));
   }
   else {
@@ -190,7 +189,7 @@ function drush_drush_build_build($site_name = NULL) {
   ));
 
   if ($result === FALSE || (isset($result['error_status']) && $result['error_status'] == 1)) {
-    drush_print(print_r($result));
+    _drush_build_write_error($result);
     return drush_set_error('DRUSH_BUILD_SITEINSTALL', dt('The installation process failed.'));
   }
   else {
@@ -212,6 +211,7 @@ function drush_drush_build_build($site_name = NULL) {
     ));
 
     if ($result === FALSE || (isset($result['error_status']) && $result['error_status'] == 1)) {
+    _drush_build_write_error($result);
       drush_log(dt('Alias could not be generated'));
     }
     else {
@@ -227,6 +227,7 @@ function drush_drush_build_build($site_name = NULL) {
       'init' => TRUE,
     ));
     if ($result === FALSE || (isset($result['error_status']) && $result['error_status'] == 1)) {
+    _drush_build_write_error($result);
       drush_log(dt('Was not able to create a git repository.'));
     }
     else {
@@ -339,6 +340,7 @@ function drush_drush_build_deploy() {
     ));
 
     if ($result === FALSE || (isset($result['error_status']) && $result['error_status'] == 1)) {
+      _drush_build_write_error($result);
       return drush_set_error('DRUSH_BUILD_PUSHKEY', dt('Could not push the public key.'));
     }
     else {
@@ -365,6 +367,7 @@ function drush_drush_build_deploy() {
   ));
 
   if ($result === FALSE || (isset($result['error_status']) && $result['error_status'] == 1)) {
+    _drush_build_write_error($result);
     return drush_set_error('DRUSH_BUILD_ALIAS', dt('Alias could not be generated'));
   }
   else {
