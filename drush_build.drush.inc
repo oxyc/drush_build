@@ -136,9 +136,11 @@ function drush_drush_build_build($site_name = NULL) {
   // @todo, Look into: drush_convert_db_from_db_url()
   $settings['db-url'] = $settings['db-driver']
     . '://' . $settings['db-username']
-    . ':' . $settings['db-password']
+    . (!empty($settings['db-password']) ? ':' . $settings['db-password'] : '')
     . '@' . $settings['db-host']
     . '/' . $settings['db-database'];
+
+  //drush_print(print_r($settings));
 
   $none = array('root' => NULL, 'uri' => NULL);
 
@@ -188,6 +190,7 @@ function drush_drush_build_build($site_name = NULL) {
   ));
 
   if ($result === FALSE || (isset($result['error_status']) && $result['error_status'] == 1)) {
+    drush_print(print_r($result));
     return drush_set_error('DRUSH_BUILD_SITEINSTALL', dt('The installation process failed.'));
   }
   else {
