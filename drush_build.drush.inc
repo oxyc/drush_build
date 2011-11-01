@@ -37,7 +37,10 @@ function drush_build_drush_command() {
       '--account-name' => dt('The username of the Drupal UID1'),
       '--account-pass' => dt('The password of the Drupal UID1'),
       '--account-mail' => dt('The email of the Drupal UID1'),
+      '--launch-browser' => dt('A browser command to to launch the site with.'),
       '--create-repository' => TRUE,
+      '--enable-modules' => TRUE,
+      '--modules' => dt('List of modules to enable, separated by a comma.'),
     ),
   );
   $items['deploy'] = array(
@@ -144,7 +147,7 @@ function drush_drush_build_build($site_name = NULL) {
 
   if (is_dir($settings['install_path'])) {
 
-    $continue = drush_confirm(dt('The installation path %path already exists, do you wish to remove it', array('%path' => $install_path)));
+    $continue = drush_confirm(dt('The installation path %path already exists, do you wish to remove it', array('%path' => $settings['install_path'])));
 
     if ($continue) {
       drush_op('drush_shell_exec', 'chmod -R a+w %s', $settings['install_path']);
@@ -199,6 +202,21 @@ function drush_drush_build_build($site_name = NULL) {
   // Change file permissions
   drush_op('drush_shell_exec', 'chmod -R a+w %s', './sites/default/files');
 
+  // Enable modules
+  if ($settings['enable-modules']) {
+    
+    drush_print(dt('Invoking %command, this might take a while...', array('%command' => 'pm-enable')));
+    $result = drush_invoke_process($none, 'pm-enable', $settings['modules'], array());
+
+    if ($result === FALSE || (isset($result['error_status']) && $result['error_status'] == 1)) {
+      _drush_build_write_error($result);
+      return drush_set_error('DRUSH_BUILD_ENABLE_MODULES', dt('Was not enable to enable modules.'));
+    }
+    else {
+      drush_log(dt('Enable Drupal modules successfully.'), 'success');
+    }
+  }
+
   // Generate alias
   if ($settings['generate-alias']) {
     $result = drush_invoke_process($none, 'generate-alias', array(
@@ -211,7 +229,7 @@ function drush_drush_build_build($site_name = NULL) {
     ));
 
     if ($result === FALSE || (isset($result['error_status']) && $result['error_status'] == 1)) {
-    _drush_build_write_error($result);
+      _drush_build_write_error($result);
       drush_log(dt('Alias could not be generated'));
     }
     else {
@@ -227,7 +245,7 @@ function drush_drush_build_build($site_name = NULL) {
       'init' => TRUE,
     ));
     if ($result === FALSE || (isset($result['error_status']) && $result['error_status'] == 1)) {
-    _drush_build_write_error($result);
+      _drush_build_write_error($result);
       drush_log(dt('Was not able to create a git repository.'));
     }
     else {
@@ -236,14 +254,14 @@ function drush_drush_build_build($site_name = NULL) {
   }
 
   // Launch a login page in the browser
-  if (!empty($settings['host'])) {
+  if ($settings['launch-browser'] && !empty($settings['host'])) {
     $login_url = drush_invoke_process($none, 'user-login', array(
     ), array(
       'uri' => $settings['local_url'],
     ));
 
     if (is_array($login_url)) {
-      drush_shell_exec('google-chrome %s', $login_url['output']);
+      drush_shell_exec('%s %s', $settings['launch-browser'], $login_url['output']);
     }
   }
 }

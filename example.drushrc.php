@@ -56,6 +56,10 @@ $command_specific['build'] = array(
   'account-pass' => 'admin',
   'account-mail' => 'admin@example.com',
   'create-repository' => TRUE,
+  'launch-browser' => 'google-chrome',
+  'modules' => array(
+    'menu', 'field_ui', 'taxonomy', 'contextual', 'dashboard', 'shortcut', 'help', 'overlay', 'path', 'file', 'image', 'list', 'number',
+  ),
 );
 
 // Deploy specific settings that keeps repeating. Most of the values have
