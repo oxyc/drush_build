@@ -57,6 +57,7 @@ $command_specific['build'] = array(
   'account-mail' => 'admin@example.com',
   'create-repository' => TRUE,
   'launch-browser' => 'google-chrome',
+  'enable-modules' => TRUE,
   'modules' => array(
     'menu', 'field_ui', 'taxonomy', 'contextual', 'dashboard', 'shortcut', 'help', 'overlay', 'path', 'file', 'image', 'list', 'number',
   ),
